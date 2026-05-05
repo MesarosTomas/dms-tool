@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge">v1.0 · syntax.atlassian.net</span>
+  <span class="header-badge" x-text="'v1.0 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -470,6 +470,10 @@
         <div class="field">
           <label>Space Key</label>
           <input type="text" x-model="config.spaceKey" placeholder="NOVDM" @change="connStatus='idle'">
+        </div>
+        <div class="field" style="grid-column: span 1;">
+          <label>Atlassian Domain</label>
+          <input type="text" x-model="config.domain" placeholder="syntax.atlassian.net" @change="connStatus='idle'">
         </div>
       </div>
       <div class="conn-status">
@@ -802,17 +806,17 @@
 
 <script>
 function app() {
-  // ── PROXY URL ──────────────────────────────────────────────────────────
-  // Replace this with your own Cloudflare Worker URL after deploying worker.js
-  // Example: 'https://dms-proxy.yourname.workers.dev'
-  // The Worker adds CORS headers so the browser can call Atlassian API.
-  // Netlify proxy — no external service needed
-  const BASE = '/proxy'; // Netlify _redirects forwards this to syntax.atlassian.net // e.g. /proxy/rest/api/content → Worker strips /proxy and forwards
+  // ── PROXY via Netlify Function ──────────────────────────────────────────
+  // /api/proxy?domain=DOMAIN&path=PATH  — serverless function handles CORS
+  function proxyUrl(path) {
+    const domain = this.config.domain || 'syntax.atlassian.net';
+    return `/api/proxy?domain=${encodeURIComponent(domain)}&path=${encodeURIComponent(path)}`;
+  }
   
 
   return {
     tab: 'compare',
-    config: { email: '', apiToken: '', spaceKey: '' },
+    config: { email: '', apiToken: '', spaceKey: '', domain: 'syntax.atlassian.net' },
     connStatus: 'idle',
     connMsg: 'Enter credentials and test connection',
     loading: false,
@@ -850,7 +854,7 @@ function app() {
       this.connStatus = 'idle';
       this.connMsg = 'Testing…';
       try {
-        const res = await fetch(`${BASE}/rest/api/space/${this.config.spaceKey}`, {
+        const res = await fetch(this.proxyUrl(`/rest/api/space/${this.config.spaceKey}`), {
           headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
         });
         if (res.ok) {
@@ -950,7 +954,7 @@ function app() {
       let total = null;
 
       while (true) {
-        const url = `${BASE}/rest/api/content?spaceKey=${this.config.spaceKey}&type=page&start=${start}&limit=${limit}&status=current`;
+        const url = this.proxyUrl(`/rest/api/content?spaceKey=${this.config.spaceKey}&type=page&start=${start}&limit=${limit}&status=current`);
         const res = await fetch(url, {
           headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
         });
@@ -1008,7 +1012,7 @@ function app() {
         for (const p of pages) {
           if (!this.isBPPage(p.title)) continue;
           const num = this.extractBPNum(p.title);
-          if (num) confBPs[num] = { title: p.title, url: `https://syntax.atlassian.net/wiki${p._links?.webui || ''}` };
+          if (num) confBPs[num] = { title: p.title, url: `https://${this.config.domain}/wiki${p._links?.webui || ''}` };
         }
 
         const excelMap = {};
@@ -1086,7 +1090,7 @@ function app() {
           // Fetch page body
           let classification = 'UNKNOWN', lastUpdate = '';
           try {
-            const res = await fetch(`${BASE}/rest/api/content/${p.id}?expand=body.storage`, {
+            const res = await fetch(this.proxyUrl(`/rest/api/content/${p.id}?expand=body.storage`), {
               headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
             });
             if (res.ok) {
@@ -1108,7 +1112,7 @@ function app() {
             sa: saNum ? 'SA' + saNum : '—',
             classification,
             lastUpdate,
-            url: `https://syntax.atlassian.net/wiki${p._links?.webui || ''}`
+            url: `https://${this.config.domain}/wiki${p._links?.webui || ''}`
           });
 
           done++;

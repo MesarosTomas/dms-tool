@@ -1,1 +1,1 @@
-/proxy/*  https://syntax.atlassian.net/:splat  200
+/api/proxy  /.netlify/functions/proxy  200
