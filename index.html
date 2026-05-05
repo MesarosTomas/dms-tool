@@ -851,7 +851,7 @@ function app() {
       this.connStatus = 'idle';
       this.connMsg = 'Testing…';
       try {
-        const res = await fetch(this.proxyUrl(`/rest/api/space/${this.config.spaceKey}`), {
+        const res = await fetch(this.proxyUrl(`/wiki/rest/api/space/${this.config.spaceKey}`), {
           headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
         });
         if (res.ok) {
@@ -866,7 +866,7 @@ function app() {
         this.connStatus = 'err';
         this.connMsg = 'Error: ' + e.message;
         console.error('Full error:', e);
-        console.error('Attempted URL:', this.proxyUrl(`/rest/api/space/${this.config.spaceKey}`));
+        console.error('Attempted URL:', this.proxyUrl(`/wiki/rest/api/space/${this.config.spaceKey}`));
       }
       this.loading = false;
     },
@@ -952,7 +952,7 @@ function app() {
       let total = null;
 
       while (true) {
-        const url = this.proxyUrl(`/rest/api/content?spaceKey=${this.config.spaceKey}&type=page&start=${start}&limit=${limit}&status=current`);
+        const url = this.proxyUrl(`/wiki/rest/api/content?spaceKey=${this.config.spaceKey}&type=page&start=${start}&limit=${limit}&status=current`);
         const res = await fetch(url, {
           headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
         });
@@ -1088,7 +1088,7 @@ function app() {
           // Fetch page body
           let classification = 'UNKNOWN', lastUpdate = '';
           try {
-            const res = await fetch(this.proxyUrl(`/rest/api/content/${p.id}?expand=body.storage`), {
+            const res = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=body.storage`), {
               headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
             });
             if (res.ok) {
