@@ -806,11 +806,12 @@
 
 <script>
 function app() {
-  // ── PROXY via Netlify Function ──────────────────────────────────────────
-  // /api/proxy?domain=DOMAIN&path=PATH  — serverless function handles CORS
+  // ── PROXY via Netlify _redirects ─────────────────────────────────────────
+  // /proxy/* → https://[domain]/:splat  (set in _redirects per domain)
+  // proxyUrl builds the correct path for the current domain
   function proxyUrl(path) {
     const domain = this.config.domain || 'syntax.atlassian.net';
-    return `/api/proxy?domain=${encodeURIComponent(domain)}&path=${encodeURIComponent(path)}`;
+    return '/proxy/' + domain + path;
   }
   
 
