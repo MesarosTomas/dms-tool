@@ -1,5 +1,4 @@
-export default async function handler(req, res) {
-  // CORS headers
+module.exports = async function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
@@ -8,18 +7,21 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  const { domain, path } = req.query;
+  const domain = req.query.domain || '';
+  const path   = req.query.path   || '';
 
   if (!domain || !path) {
-    return res.status(400).json({ error: 'Missing domain or path parameter' });
+    return res.status(400).json({ error: 'Missing domain or path' });
   }
 
   if (!domain.endsWith('.atlassian.net')) {
-    return res.status(403).json({ error: 'Only *.atlassian.net domains are allowed' });
+    return res.status(403).json({ error: 'Only *.atlassian.net allowed' });
   }
 
-  const targetUrl = `https://${domain}${path}`;
+  const targetUrl = 'https://' + domain + path;
   const auth = req.headers['authorization'] || '';
+
+  console.log('Proxying to:', targetUrl);
 
   try {
     const response = await fetch(targetUrl, {
@@ -27,13 +29,14 @@ export default async function handler(req, res) {
       headers: {
         'Authorization': auth,
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
     });
 
     const body = await response.text();
+    console.log('Response status:', response.status);
     res.status(response.status).send(body);
   } catch (e) {
-    res.status(502).json({ error: 'Proxy fetch failed', detail: e.message });
+    console.error('Fetch error:', e.message);
+    res.status(502).json({ error: e.message });
   }
-}
+};
