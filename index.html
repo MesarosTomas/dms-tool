@@ -806,18 +806,14 @@
 
 <script>
 function app() {
-  // ── PROXY via Netlify _redirects ─────────────────────────────────────────
-  // /proxy/* → https://[domain]/:splat  (set in _redirects per domain)
-  // proxyUrl builds the correct path for the current domain
-  function proxyUrl(path) {
-    const domain = this.config.domain || 'syntax.atlassian.net';
-    return '/api/proxy?domain=' + encodeURIComponent(domain) + '&path=' + encodeURIComponent(path);
-  }
-  
-
   return {
     tab: 'compare',
     config: { email: '', apiToken: '', spaceKey: '', domain: 'syntax.atlassian.net' },
+
+    proxyUrl(path) {
+      const domain = this.config.domain || 'syntax.atlassian.net';
+      return '/api/proxy?domain=' + encodeURIComponent(domain) + '&path=' + encodeURIComponent(path);
+    },
     connStatus: 'idle',
     connMsg: 'Enter credentials and test connection',
     loading: false,
