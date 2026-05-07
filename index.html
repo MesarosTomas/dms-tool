@@ -1183,18 +1183,24 @@ function app() {
     },
 
     parseClassification(html) {
-      // Strip HTML tags to get plain text only - avoids false positives from URLs/links
-      const bodyText = html.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
-      // Search near "Solution Classification" column first (most accurate)
-      const nearMatch = bodyText.match(/Solution\s*Classification[\s\S]{0,300}?(ENHANCEMENT|ENHANCED|CUSTOMIZED|CUSTOM|STANDARD)/i);
+      // Step 1: unwrap CDATA sections BEFORE stripping tags
+      // Confluence body.storage uses <![CDATA[STANDARD]]> which gets destroyed by tag stripping
+      const withCdata = html.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, ' $1 ');
+
+      // Step 2: strip remaining XML/HTML tags
+      const bodyText = withCdata.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
+
+      // Step 3: search near "Solution Classification" column for most accurate result
+      const nearMatch = bodyText.match(/Solution\s*Classification[\s\S]{0,400}?(ENHANCEMENT|ENHANCED|CUSTOMIZED|CUSTOM|STANDARD)/i);
       if (nearMatch) {
         const v = nearMatch[1].toUpperCase();
         if (v.includes('ENHANCEMENT') || v.includes('ENHANCED')) return 'ENHANCEMENT';
         if (v.includes('CUSTOMIZED')) return 'CUSTOMIZED';
-        if (v.includes('CUSTOM')) return 'CUSTOMIZED';
         if (v.includes('STANDARD')) return 'STANDARD';
+        if (v.includes('CUSTOM')) return 'CUSTOMIZED';
       }
-      // Fallback: full plain text search - Enhancement first (longer string, more specific)
+
+      // Step 4: fallback - full text, but ENHANCEMENT checked before CUSTOM
       const upper = bodyText.toUpperCase();
       if (upper.includes('ENHANCEMENT')) return 'ENHANCEMENT';
       if (upper.includes('ENHANCED')) return 'ENHANCEMENT';
