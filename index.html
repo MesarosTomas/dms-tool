@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge" x-text="'v1.0 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.3 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1091,6 +1091,7 @@ function app() {
       this.progress = 0;
       this.tab = 'classification';
       this.loadingMsg = 'Loading Confluence pages…';
+      console.log('DMS Tool v1.3 - SA Classification starting, using atlas_doc_format');
 
       try {
         const pages = await this.fetchAllPages();
