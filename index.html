@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge" x-text="'v1.3 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.5 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1204,50 +1204,70 @@ function app() {
     parseClassificationADF(adf) {
       if (!adf || !adf.content) return 'UNKNOWN';
 
-      // Strategy 1: Find table containing "Solution Classification" header
-      // then get the status node from the same column in the data row
+      // Classify any text string - order matters: Enhancement > Customized > Standard
+      // Handles all known variants across DPT, NSMES, GX, RAUM spaces
+      const classifyText = (val) => {
+        if (!val || !val.trim()) return null;
+        const v = val.toUpperCase().trim();
+        // Enhancement variants (check FIRST - most specific)
+        if (v.includes('ENHANCEMENT') || v.includes('ENHANCED') || v.includes('ENHANCMENT') || v.includes('ENHANCEMEN')) return 'ENHANCEMENT';
+        // Customized variants
+        if (v.includes('CUSTOMIZED') || v.includes('CUSTOMISING') || v.includes('CUSTOMIZING') || v.includes('CUSTOMISED')) return 'CUSTOMIZED';
+        // Standard variants (check AFTER enhancement to avoid false positives)
+        if (v.includes('SAP STANDARD') || v === 'STANDARD' || v.startsWith('STANDARD') || v.endsWith('STANDARD')) return 'STANDARD';
+        if (v.includes('STANDARD')) return 'STANDARD';
+        // Custom (short form, least specific - check last)
+        if (v === 'CUSTOM' || v.startsWith('CUSTOM')) return 'CUSTOMIZED';
+        return null;
+      };
+
+      // Which table headers indicate the classification column
+      const isClassHeader = (text) => {
+        const t = text.toLowerCase().trim();
+        return t.includes('solution classification') ||
+               t.includes('classification') ||
+               t.includes('sap standard') ||
+               t.includes('standard or enhancement') ||
+               t.includes('standard or custom') ||
+               t === 'solution';
+      };
+
+      // Strategy 1: Find the classification column in the first table
       const tables = this.adfFindAll(adf, 'table');
       for (const table of tables) {
         const rows = (table.content || []).filter(n => n.type === 'tableRow');
         if (rows.length < 2) continue;
 
-        // Find which column index has "Solution Classification"
-        const headerRow = rows[0];
-        const headers = (headerRow.content || []);
+        // Find column index with classification header
+        const headers = rows[0].content || [];
         let classColIdx = -1;
         headers.forEach((cell, i) => {
-          const text = this.adfText(cell).toLowerCase();
-          if (text.includes('solution classification') || text.includes('classification')) {
-            classColIdx = i;
-          }
+          if (isClassHeader(this.adfText(cell))) classColIdx = i;
         });
-
         if (classColIdx === -1) continue;
 
-        // Get data row (second row) and find status node in that column
-        const dataRow = rows[1];
-        const cells = (dataRow.content || []);
-        if (classColIdx < cells.length) {
-          const cell = cells[classColIdx];
-          const statusNodes = this.adfFindAll(cell, 'status');
-          if (statusNodes.length > 0) {
-            const val = (statusNodes[0].attrs?.text || '').toUpperCase();
-            if (val.includes('ENHANCEMENT') || val.includes('ENHANCED')) return 'ENHANCEMENT';
-            if (val.includes('CUSTOMIZED')) return 'CUSTOMIZED';
-            if (val.includes('STANDARD')) return 'STANDARD';
-            if (val.includes('CUSTOM')) return 'CUSTOMIZED';
-          }
+        // Get data cell from second row
+        const cells = rows[1].content || [];
+        if (classColIdx >= cells.length) continue;
+        const cell = cells[classColIdx];
+
+        // 1a. Status badge (DPT/NSMES: "STANDARD"; GX: "SAP Standard")
+        const statusNodes = this.adfFindAll(cell, 'status');
+        for (const s of statusNodes) {
+          const r = classifyText(s.attrs?.text || '');
+          if (r) return r;
         }
+
+        // 1b. Plain text in cell (GX: "Standard"; RAUM: "Enhancment: ")
+        const cellText = this.adfText(cell);
+        const r = classifyText(cellText);
+        if (r) return r;
       }
 
-      // Strategy 2: fallback — find any status node in the document
-      const allStatus = this.adfFindAll(adf, 'status');
-      if (allStatus.length > 0) {
-        const val = (allStatus[0].attrs?.text || '').toUpperCase();
-        if (val.includes('ENHANCEMENT') || val.includes('ENHANCED')) return 'ENHANCEMENT';
-        if (val.includes('CUSTOMIZED')) return 'CUSTOMIZED';
-        if (val.includes('STANDARD')) return 'STANDARD';
-        if (val.includes('CUSTOM')) return 'CUSTOMIZED';
+      // Strategy 2: Any status badge anywhere in doc
+      for (const s of this.adfFindAll(adf, 'status')) {
+        const r = classifyText(s.attrs?.text || '');
+        if (r) return r;
       }
 
       return 'UNKNOWN';
