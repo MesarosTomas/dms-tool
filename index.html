@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge" x-text="'v1.7 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.8 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1288,9 +1288,9 @@ function app() {
     parseLastUpdateADF(adf) {
       if (!adf || !adf.content) return '';
 
-      // Helper: extract date from a cell - handles both plain text and date nodes
+      // Helper: extract date from a cell - handles all known date formats
       const extractDateFromCell = (cell) => {
-        // Check for Confluence date node (timestamp in ms)
+        // 1. Confluence date node (timestamp in ms) e.g. {"type":"date","attrs":{"timestamp":"1733184000000"}}
         const dateNodes = this.adfFindAll(cell, 'date');
         if (dateNodes.length > 0) {
           const ts = parseInt(dateNodes[0].attrs?.timestamp || '0');
@@ -1299,10 +1299,41 @@ function app() {
             return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
           }
         }
-        // Check for plain text date (dd.mm.yy or dd.mm.yyyy)
         const text = this.adfText(cell).trim();
-        const m = text.match(/\d{2}\.\d{2}\.\d{2,4}/);
-        if (m) return m[0];
+        if (!text) return '';
+
+        // 2. dd.mm.yyyy or dd.mm.yy  e.g. "07.05.2025" or "15.04.25"
+        const dotMatch = text.match(/(\d{2})\.(\d{2})\.(\d{2,4})/);
+        if (dotMatch) return dotMatch[0];
+
+        // 3. ISO format YYYY-MM-DD  e.g. "2025-03-19"
+        const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+          const d = new Date(isoMatch[0]);
+          if (!isNaN(d)) return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
+        }
+
+        // 4. "04 June 2025" or "04 Jun 2025" (English month name)
+        const months = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11,jan:0,feb:1,mar:2,apr:3,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+        const engMatch = text.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(\d{4})/);
+        if (engMatch) {
+          const mo = months[engMatch[2].toLowerCase()];
+          if (mo !== undefined) {
+            const d = new Date(parseInt(engMatch[3]), mo, parseInt(engMatch[1]));
+            if (!isNaN(d)) return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
+          }
+        }
+
+        // 5. "June 04, 2025" or "Jun 04, 2025" (American style)
+        const amMatch = text.match(/([a-zA-Z]+)\s+(\d{1,2}),?\s+(\d{4})/);
+        if (amMatch) {
+          const mo = months[amMatch[1].toLowerCase()];
+          if (mo !== undefined) {
+            const d = new Date(parseInt(amMatch[3]), mo, parseInt(amMatch[2]));
+            if (!isNaN(d)) return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
+          }
+        }
+
         return '';
       };
 
