@@ -422,13 +422,7 @@
 </head>
 <body x-data="app()">
 
-<!-- Netlify Forms detection (hidden) -->
-<form name="dms-feedback" data-netlify="true" netlify-honeypot="bot-field" hidden>
-  <input name="name">
-  <input name="type">
-  <textarea name="message"></textarea>
-  <input name="space">
-</form>
+<!-- feedback via mailto -->
 
 <!-- HEADER -->
 <header>
@@ -853,19 +847,17 @@
           </div>
           <div style="display:flex; align-items:center; gap:14px;">
             <button class="btn btn-primary" @click="submitFeedback"
-              :disabled="!feedbackForm.message.trim() || feedbackStatus==='sending'">
-              <span x-show="feedbackStatus !== 'sending'">📨 Send Feedback</span>
-              <span x-show="feedbackStatus === 'sending'">Sending…</span>
+              :disabled="!feedbackForm.message.trim()">
+              📨 Send to Tomáš
             </button>
-            <span x-show="feedbackStatus === 'sent'" style="color:var(--standard); font-size:13px;">✅ Sent! Thank you.</span>
-            <span x-show="feedbackStatus === 'error'" style="color:var(--danger); font-size:13px;">❌ Error sending. Try again.</span>
+            <span x-show="feedbackStatus === 'sent'" style="color:var(--standard); font-size:13px;">✅ Outlook opened — just click Send!</span>
           </div>
         </div>
 
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;">
           <p style="font-size:12px;color:var(--muted);margin:0;">
-            📧 Feedback is sent to <strong style="color:var(--text);">tomas.mesaros@syntax.com</strong><br>
-            <span style="margin-top:4px;display:block;">You can also reach out directly on Teams or Confluence.</span>
+            📧 Clicking <strong style="color:var(--text);">Open in Outlook</strong> will open your email client with the feedback pre-filled and addressed to <strong style="color:var(--text);">tomas.mesaros@syntax.com</strong>.<br>
+            <span style="margin-top:4px;display:block;">Just hit Send in Outlook — no accounts or services needed.</span>
           </p>
         </div>
 
@@ -1133,29 +1125,35 @@ function app() {
       this.loading = false;
     },
 
-    async submitFeedback() {
+    submitFeedback() {
       if (!this.feedbackForm.message.trim()) return;
-      this.feedbackStatus = 'sending';
-      try {
-        const body = new FormData();
-        body.append('form-name', 'dms-feedback');
-        body.append('name', this.feedbackForm.name || 'Anonymous');
-        body.append('type', this.feedbackForm.type);
-        body.append('message', this.feedbackForm.message);
-        body.append('space', this.config.spaceKey || '—');
-        const res = await fetch('/', { method: 'POST', body });
-        if (res.ok) {
-          this.feedbackStatus = 'sent';
-          this.feedbackForm.message = '';
-          this.feedbackForm.name = '';
-          setTimeout(() => { this.feedbackStatus = ''; }, 4000);
-        } else {
-          this.feedbackStatus = 'error';
-        }
-      } catch(e) {
-        this.feedbackStatus = 'error';
-        console.error(e);
-      }
+      const typeLabels = {
+        idea: '💡 Feature Idea',
+        bug: '🐛 Bug / Problem',
+        improvement: '⚙️ Improvement',
+        other: '💬 Other'
+      };
+      const subject = encodeURIComponent(`DMS Confluence Tool – ${typeLabels[this.feedbackForm.type] || 'Feedback'}`);
+      const body = encodeURIComponent(
+        `From: ${this.feedbackForm.name || 'Anonymous'}
+` +
+        `Type: ${typeLabels[this.feedbackForm.type] || this.feedbackForm.type}
+` +
+        `Space: ${this.config.spaceKey || '—'}
+
+` +
+        `Message:
+${this.feedbackForm.message}
+
+` +
+        `---
+Sent from DMS Confluence Tool`
+      );
+      window.location.href = `mailto:tomas.mesaros@syntax.com?subject=${subject}&body=${body}`;
+      this.feedbackStatus = 'sent';
+      this.feedbackForm.message = '';
+      this.feedbackForm.name = '';
+      setTimeout(() => { this.feedbackStatus = ''; }, 4000);
     },
 
     titleSimilarity(a, b) {
