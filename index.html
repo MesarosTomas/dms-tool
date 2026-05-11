@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge" x-text="'v1.5 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.6 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -703,7 +703,7 @@
           <div class="table-wrap">
             <div class="table-title">All SA Pages</div>
             <table class="results-table">
-              <thead><tr><th>BP</th><th>SA</th><th>Title</th><th>Classification</th><th>Manual Date</th><th>Page Modified</th></tr></thead>
+              <thead><tr><th>BP</th><th>SA</th><th>Title</th><th>Classification</th><th>Manual Date</th><th>Page Modified</th><th>Created</th></tr></thead>
               <tbody>
                 <template x-for="sa in classResults.pages" :key="sa.id">
                   <tr>
@@ -725,6 +725,7 @@
                     <td style="font-size:12px;"
                         :style="sa.dateMismatch ? 'color:var(--warn);font-weight:600;' : 'color:var(--muted)'"
                         x-text="(sa.pageLastModified || '—') + (sa.dateMismatch ? ' ⚠' : '')"></td>
+                    <td style="color:var(--muted); font-size:12px;" x-text="sa.pageCreatedAt || '—'"></td>
                   </tr>
                 </template>
               </tbody>
@@ -1123,21 +1124,29 @@ function app() {
           const saNum = this.extractSANum(p.title);
 
           let pageLastModified = '';
+          let pageCreatedAt = '';
           let dateMismatch = false;
           try {
-            const when = data.version && data.version.when;
-            if (when) {
-              const d = new Date(when);
+            // API returns version.createdAt (not version.when) for last modified
+            const lastModified = (data.version && data.version.createdAt) || '';
+            const created = data.createdAt || '';
+
+            if (lastModified) {
+              const d = new Date(lastModified);
               pageLastModified = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
+              // Check mismatch with manually entered date
               if (lastUpdate) {
                 const parts = lastUpdate.split('.');
                 if (parts.length >= 2) {
                   const yr = parts[2] ? (parts[2].length === 2 ? '20' + parts[2] : parts[2]) : '2025';
                   const manual = new Date(yr, parseInt(parts[1])-1, parseInt(parts[0]));
-                  const actual = new Date(when);
-                  dateMismatch = Math.abs((actual - manual) / 86400000) > 1;
+                  dateMismatch = Math.abs((new Date(lastModified) - manual) / 86400000) > 1;
                 }
               }
+            }
+            if (created) {
+              const d = new Date(created);
+              pageCreatedAt = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
             }
           } catch(e) {}
 
@@ -1150,6 +1159,7 @@ function app() {
             classification,
             lastUpdate,
             pageLastModified,
+            pageCreatedAt,
             dateMismatch,
             url: `https://${this.config.domain}/wiki${p._links?.webui || ''}`
           });
