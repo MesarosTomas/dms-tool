@@ -425,7 +425,7 @@
     <div class="logo-icon">⚡</div>
     DMS Confluence Tool
   </div>
-  <span class="header-badge" x-text="'v1.6 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.7 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1287,7 +1287,25 @@ function app() {
 
     parseLastUpdateADF(adf) {
       if (!adf || !adf.content) return '';
-      // Find "Last update" column and get text from data row
+
+      // Helper: extract date from a cell - handles both plain text and date nodes
+      const extractDateFromCell = (cell) => {
+        // Check for Confluence date node (timestamp in ms)
+        const dateNodes = this.adfFindAll(cell, 'date');
+        if (dateNodes.length > 0) {
+          const ts = parseInt(dateNodes[0].attrs?.timestamp || '0');
+          if (ts > 0) {
+            const d = new Date(ts);
+            return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
+          }
+        }
+        // Check for plain text date (dd.mm.yy or dd.mm.yyyy)
+        const text = this.adfText(cell).trim();
+        const m = text.match(/\d{2}\.\d{2}\.\d{2,4}/);
+        if (m) return m[0];
+        return '';
+      };
+
       const tables = this.adfFindAll(adf, 'table');
       for (const table of tables) {
         const rows = (table.content || []).filter(n => n.type === 'tableRow');
@@ -1300,15 +1318,21 @@ function app() {
         if (updateColIdx === -1) continue;
         const cells = (rows[1].content || []);
         if (updateColIdx < cells.length) {
-          const text = this.adfText(cells[updateColIdx]).trim();
-          const m = text.match(/\d{2}\.\d{2}\.\d{2,4}/);
-          if (m) return m[0];
+          const result = extractDateFromCell(cells[updateColIdx]);
+          if (result) return result;
         }
       }
-      // Fallback: find any date in the full text
-      const allText = this.adfText(adf);
-      const m = allText.match(/\d{2}\.\d{2}\.\d{2,4}/);
-      return m ? m[0] : '';
+
+      // Fallback: any date node in document
+      const allDateNodes = this.adfFindAll(adf, 'date');
+      if (allDateNodes.length > 0) {
+        const ts = parseInt(allDateNodes[0].attrs?.timestamp || '0');
+        if (ts > 0) {
+          const d = new Date(ts);
+          return d.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'2-digit'});
+        }
+      }
+      return '';
     },
 
     parseLastUpdate(html) { return ''; }, // legacy
