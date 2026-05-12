@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v1.8 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v1.9 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1199,7 +1199,7 @@ Sent from DMS Confluence Tool`
           // Fetch page body
           let classification = 'UNKNOWN', lastUpdate = '';
           try {
-            const res = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=body.atlas_doc_format,version`), {
+            const res = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=body.atlas_doc_format,version,history`), {
               headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
             });
             if (res.ok) {
@@ -1219,28 +1219,31 @@ Sent from DMS Confluence Tool`
           let pageCreatedAt = '';
           let dateMismatch = false;
           try {
-            // API returns version.createdAt (not version.when) for last modified
-            const lastModified = (data.version && data.version.createdAt) || '';
-            const created = data.createdAt || '';
+            // Try both v1 API (version.when) and newer API (version.createdAt)
+            const lastModified = (data.version && (data.version.createdAt || data.version.when)) || '';
+            // createdAt at top level (newer API) or history.createdDate (v1)
+            const created = data.createdAt || (data.history && data.history.createdDate) || '';
 
             if (lastModified) {
               const d = new Date(lastModified);
-              pageLastModified = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
-              // Check mismatch with manually entered date
-              if (lastUpdate) {
-                const parts = lastUpdate.split('.');
-                if (parts.length >= 2) {
-                  const yr = parts[2] ? (parts[2].length === 2 ? '20' + parts[2] : parts[2]) : '2025';
-                  const manual = new Date(yr, parseInt(parts[1])-1, parseInt(parts[0]));
-                  dateMismatch = Math.abs((new Date(lastModified) - manual) / 86400000) > 1;
+              if (!isNaN(d)) {
+                pageLastModified = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
+                // Check mismatch with manually entered date
+                if (lastUpdate) {
+                  const parts = lastUpdate.replace(/\//g, '.').split('.');
+                  if (parts.length >= 2) {
+                    const yr = parts[2] ? (parts[2].length === 2 ? '20' + parts[2] : parts[2]) : '2025';
+                    const manual = new Date(parseInt(yr), parseInt(parts[1])-1, parseInt(parts[0]));
+                    dateMismatch = !isNaN(manual) && Math.abs((d - manual) / 86400000) > 1;
+                  }
                 }
               }
             }
             if (created) {
               const d = new Date(created);
-              pageCreatedAt = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
+              if (!isNaN(d)) pageCreatedAt = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
             }
-          } catch(e) {}
+          } catch(e) { console.error('Date parse error:', e); }
 
           result.push({
             id: p.id,
