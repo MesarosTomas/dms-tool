@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v2.2 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v2.3 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1218,9 +1218,9 @@ Sent from DMS Confluence Tool`
             });
             if (res2.ok) {
               const d2 = await res2.json();
-              // version.when = last modified date (Confluence REST API v1)
-              const lastModified = d2.version?.when || '';
-              const created = d2.history?.createdDate || '';
+              // Try both v1 (version.when, history.createdDate) and v2 (version.createdAt, createdAt)
+              const lastModified = d2.version?.when || d2.version?.createdAt || '';
+              const created = d2.history?.createdDate || d2.createdAt || '';
               if (lastModified) {
                 const d = new Date(lastModified);
                 if (!isNaN(d)) {
