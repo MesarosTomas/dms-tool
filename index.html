@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v1.9 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v2.0 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1204,48 +1204,39 @@ Sent from DMS Confluence Tool`
             });
             if (res.ok) {
               const data = await res.json();
-              // ADF is JSON - parse it for clean structure
+              // ADF parsing
               const adfBody = data.body?.atlas_doc_format?.value || '{}';
               const adf = typeof adfBody === 'string' ? JSON.parse(adfBody) : adfBody;
               classification = this.parseClassificationADF(adf);
               lastUpdate = this.parseLastUpdateADF(adf);
+              // Date parsing inside res.ok block where data is in scope
+              const lastModified = (data.version && (data.version.createdAt || data.version.when)) || '';
+              const created = data.createdAt || (data.history && data.history.createdDate) || '';
+              if (lastModified) {
+                const d = new Date(lastModified);
+                if (!isNaN(d)) {
+                  pageLastModified = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
+                  if (lastUpdate) {
+                    const parts = lastUpdate.replace(/\//g, '.').split('.');
+                    if (parts.length >= 2) {
+                      const yr = parts[2] ? (parts[2].length === 2 ? '20' + parts[2] : parts[2]) : '2025';
+                      const manual = new Date(parseInt(yr), parseInt(parts[1])-1, parseInt(parts[0]));
+                      dateMismatch = !isNaN(manual) && Math.abs((d - manual) / 86400000) > 1;
+                    }
+                  }
+                }
+              }
+              if (created) {
+                const d = new Date(created);
+                if (!isNaN(d)) pageCreatedAt = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
+              }
             }
           } catch {}
 
           const bpNum = this.extractBPNum(p.title);
           const saNum = this.extractSANum(p.title);
 
-          let pageLastModified = '';
-          let pageCreatedAt = '';
-          let dateMismatch = false;
-          try {
-            // Debug - remove after testing
-            console.log('PAGE DATA version:', JSON.stringify(data.version), '| createdAt:', data.createdAt, '| history:', data.history?.createdDate);
-            // Try both v1 API (version.when) and newer API (version.createdAt)
-            const lastModified = (data.version && (data.version.createdAt || data.version.when)) || '';
-            // createdAt at top level (newer API) or history.createdDate (v1)
-            const created = data.createdAt || (data.history && data.history.createdDate) || '';
-
-            if (lastModified) {
-              const d = new Date(lastModified);
-              if (!isNaN(d)) {
-                pageLastModified = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
-                // Check mismatch with manually entered date
-                if (lastUpdate) {
-                  const parts = lastUpdate.replace(/\//g, '.').split('.');
-                  if (parts.length >= 2) {
-                    const yr = parts[2] ? (parts[2].length === 2 ? '20' + parts[2] : parts[2]) : '2025';
-                    const manual = new Date(parseInt(yr), parseInt(parts[1])-1, parseInt(parts[0]));
-                    dateMismatch = !isNaN(manual) && Math.abs((d - manual) / 86400000) > 1;
-                  }
-                }
-              }
-            }
-            if (created) {
-              const d = new Date(created);
-              if (!isNaN(d)) pageCreatedAt = d.toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'2-digit'});
-            }
-          } catch(e) { console.error('Date parse error:', e); }
+          let pageLastModified = '', pageCreatedAt = '', dateMismatch = false;
 
           result.push({
             id: p.id,
