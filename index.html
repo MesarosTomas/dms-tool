@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v2.1 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v2.2 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1196,29 +1196,31 @@ Sent from DMS Confluence Tool`
         let done = 0;
 
         for (const p of saPages) {
-          // Fetch page body
+          // Fetch 1: ADF body for classification + manual date
           let classification = 'UNKNOWN', lastUpdate = '';
           try {
-            const res = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=body.atlas_doc_format,version.by,history.lastUpdated`), {
+            const res = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=body.atlas_doc_format`), {
               headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
             });
             if (res.ok) {
               const data = await res.json();
-              // ADF parsing
               const adfBody = data.body?.atlas_doc_format?.value || '{}';
               const adf = typeof adfBody === 'string' ? JSON.parse(adfBody) : adfBody;
               classification = this.parseClassificationADF(adf);
               lastUpdate = this.parseLastUpdateADF(adf);
-              // Date parsing - try all known field locations across API versions
-              const lastModified = 
-                (data.version && (data.version.when || data.version.createdAt)) ||
-                (data.history && data.history.lastUpdated && data.history.lastUpdated.when) ||
-                (p.version && (p.version.when || p.version.createdAt)) ||
-                data.lastModified || '';
-              const created = 
-                (data.history && data.history.createdDate) ||
-                (p.history && p.history.createdDate) ||
-                data.createdAt || '';
+            }
+          } catch {}
+
+          // Fetch 2: version + history for actual page dates (separate call - more reliable)
+          try {
+            const res2 = await fetch(this.proxyUrl(`/wiki/rest/api/content/${p.id}?expand=version,history`), {
+              headers: { 'Authorization': this.authHeader, 'Accept': 'application/json' }
+            });
+            if (res2.ok) {
+              const d2 = await res2.json();
+              // version.when = last modified date (Confluence REST API v1)
+              const lastModified = d2.version?.when || '';
+              const created = d2.history?.createdDate || '';
               if (lastModified) {
                 const d = new Date(lastModified);
                 if (!isNaN(d)) {
