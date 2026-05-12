@@ -1219,6 +1219,8 @@ Sent from DMS Confluence Tool`
           let pageCreatedAt = '';
           let dateMismatch = false;
           try {
+            // Debug - remove after testing
+            console.log('PAGE DATA version:', JSON.stringify(data.version), '| createdAt:', data.createdAt, '| history:', data.history?.createdDate);
             // Try both v1 API (version.when) and newer API (version.createdAt)
             const lastModified = (data.version && (data.version.createdAt || data.version.when)) || '';
             // createdAt at top level (newer API) or history.createdDate (v1)
