@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v2.5 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v2.6 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1494,7 +1494,7 @@ Sent from DMS Confluence Tool`
 // Additional common verbs
 'trigger','initiate','enable','disable','establish','determine','identify','evaluate','integrate','notify','alert','log','flag','verify','ensure','maintain','issue','resolve','merge','split','lock','unlock','reset','refresh','save','parse','format','convert','filter','sort','group','link','route','dispatch','archive','restore','publish','collect','aggregate','summarise','summarize','simulate','replicate','delegate','coordinate','facilitate',
 // Missing verbs found in NSMES
-'limit','measure','assemble','assembl','have','use','access','work','return','confirm','follow','read','write','search','find','get','give','take','make','know','think','need','want','build','grow','keep','lead','learn','let','put','mean','become','leave','begin','show','feel','seem','provide','include','continue','set up','set','reduce','increase','control','manage','allow','require','contain','consider','appear','buy','wait','serve','die','send','expect','stay','fall','reach','kill','remain','suggest','raise','pass','sell','require','report','decide','pull','reproduce','request','attach','decrease','divide','get','consume','consumption','pick','stage','weigh','count','replenish','withdraw','reverse','relocate','separate','quarantine','scrap','repair','rework','reconcile','unpack','unblock','initial'];
+'limit','measure','assemble','assembl','have','use','access','work','return','confirm','follow','read','write','search','find','get','give','take','make','know','think','need','want','build','grow','keep','lead','learn','let','put','mean','become','leave','begin','show','feel','seem','provide','include','continue','set up','set','reduce','increase','control','manage','allow','require','contain','consider','appear','buy','wait','serve','die','send','expect','stay','fall','reach','kill','remain','suggest','raise','pass','sell','require','report','decide','pull','reproduce','request','attach','decrease','divide','get','consume','consumption','pick','stage','weigh','count','replenish','withdraw','reverse','relocate','separate','quarantine','bypass','loop','repeat','assure','ensure','pack','outplace','receipt','populate','interlock','interlocking','prevent','edit','approval','notify','log','scrap','repair','rework','reconcile','unpack','unblock','initial'];
 
         // DM jargon to flag
         const DM_JARGON = ['phio', 'sapdm', 'sfc'];
@@ -1530,7 +1530,7 @@ Sent from DMS Confluence Tool`
           }
 
           // Rule 2: Too long (> 8 words)
-          if (words.length > 8) {
+          if (words.length > 10) {
             issues.push({
               id: p.id + '_len',
               pageRef: ref,
@@ -1588,7 +1588,7 @@ Sent from DMS Confluence Tool`
 
           // SA: too long
           const words = coreName.split(/\s+/).filter(Boolean);
-          if (words.length > 8) {
+          if (words.length > 11) {
             issues.push({
               id: p.id + '_salen',
               pageRef: ref,
@@ -1601,14 +1601,16 @@ Sent from DMS Confluence Tool`
           }
 
           // SA: configuration description (contains "config")
-          if (/configur/i.test(coreName)) {
+          // Only flag if SA name describes configuration STEPS (has config verb + procedure words)
+          // Don't flag just because "configuration" appears in title
+          if (/configur/i.test(coreName) && /(step|how to|setting|set up|transaction|tcode|procedure|navigate|click|open|enter|input)/i.test(coreName)) {
             issues.push({
               id: p.id + '_saconfig',
               pageRef: ref,
               title: p.title,
               url,
               rule: 'SA name should not describe configuration steps — keep it functional',
-              detail: `"${coreName}" describes configuration`,
+              detail: `"${coreName}" describes configuration steps`,
               severity: 'warn'
             });
           }
