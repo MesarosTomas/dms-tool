@@ -431,7 +431,7 @@
     <div style="width:1px; height:22px; background:var(--border); margin:0 4px;"></div>
     <span style="font-size:13px; color:var(--muted); font-weight:400; letter-spacing:0.3px;">DMS Confluence Tool</span>
   </div>
-  <span class="header-badge" x-text="'v2.3 · ' + (config.domain || 'atlassian.net')"></span>
+  <span class="header-badge" x-text="'v2.5 · ' + (config.domain || 'atlassian.net')"></span>
 </header>
 
 <div class="layout">
@@ -1218,6 +1218,7 @@ Sent from DMS Confluence Tool`
             });
             if (res2.ok) {
               const d2 = await res2.json();
+              console.log('RAW version data:', JSON.stringify(d2.version), '| history:', JSON.stringify(d2.history), '| createdAt:', d2.createdAt);
               // Try both v1 (version.when, history.createdDate) and v2 (version.createdAt, createdAt)
               const lastModified = d2.version?.when || d2.version?.createdAt || '';
               const created = d2.history?.createdDate || d2.createdAt || '';
@@ -1487,10 +1488,16 @@ Sent from DMS Confluence Tool`
         const issues = [];
 
         // Common verbs for quick detection
-        const COMMON_VERBS = ['execute','manage','create','process','configure','change','assign','check','confirm','handle','define','set','run','start','stop','complete','receive','send','release','update','view','generate','perform','add','remove','delete','monitor','track','approve','reject','record','capture','print','scan','load','upload','download','report','analyze','analyse','calculate','validate','plan','schedule','book','close','open','activate','deactivate','display','show','enter','input','select','pick','post','transfer','move','copy','export','import','register','cancel','adjust','review','inspect','test','install','deploy','visualise','visualize','organise','organize','realise','realize','utilise','utilize','synchronise','synchronize','initialise','initialize','authorise','authorize','recognise','recognize','optimise','optimize','prioritise','prioritize','categorise','categorize','standardise','standardize','finalise','finalize','trigger','initiate','enable','disable','establish','determine','identify','evaluate','integrate','notify','alert','log','flag','verify','ensure','maintain','issue','resolve','merge','split','lock','unlock','reset','refresh','save','parse','format','convert','filter','sort','group','link','route','dispatch','archive','restore','publish','collect','aggregate','summarise','summarize','simulate','replicate','delegate','coordinate','facilitate'];
+        const COMMON_VERBS = ['execute','manage','create','process','configure','change','assign','check','confirm','handle','define','set','run','start','stop','complete','receive','send','release','update','view','generate','perform','add','remove','delete','monitor','track','approve','reject','record','capture','print','scan','load','upload','download','report','analyze','analyse','calculate','validate','plan','schedule','book','close','open','activate','deactivate','display','show','enter','input','select','pick','post','transfer','move','copy','export','import','register','cancel','adjust','review','inspect','test','install','deploy',
+// British English
+'visualise','visualize','organise','organize','realise','realize','utilise','utilize','synchronise','synchronize','initialise','initialize','authorise','authorize','recognise','recognize','optimise','optimize','prioritise','prioritize','categorise','categorize','standardise','standardize','finalise','finalize',
+// Additional common verbs
+'trigger','initiate','enable','disable','establish','determine','identify','evaluate','integrate','notify','alert','log','flag','verify','ensure','maintain','issue','resolve','merge','split','lock','unlock','reset','refresh','save','parse','format','convert','filter','sort','group','link','route','dispatch','archive','restore','publish','collect','aggregate','summarise','summarize','simulate','replicate','delegate','coordinate','facilitate',
+// Missing verbs found in NSMES
+'limit','measure','assemble','assembl','have','use','access','work','return','confirm','follow','read','write','search','find','get','give','take','make','know','think','need','want','build','grow','keep','lead','learn','let','put','mean','become','leave','begin','show','feel','seem','provide','include','continue','set up','set','reduce','increase','control','manage','allow','require','contain','consider','appear','buy','wait','serve','die','send','expect','stay','fall','reach','kill','remain','suggest','raise','pass','sell','require','report','decide','pull','reproduce','request','attach','decrease','divide','get','consume','consumption','pick','stage','weigh','count','replenish','withdraw','reverse','relocate','separate','quarantine','scrap','repair','rework','reconcile','unpack','unblock','initial'];
 
         // DM jargon to flag
-        const DM_JARGON = ['sfc', 'pod', 'oee', 'prt', 'nc', 'phio', 'sapdm', 'dm system'];
+        const DM_JARGON = ['phio', 'sapdm', 'sfc'];
 
         for (const p of bpPages) {
           const bpNum = this.extractBPNum(p.title);
@@ -1500,7 +1507,16 @@ Sent from DMS Confluence Tool`
           const ref = 'BP' + String(bpNum || 0).padStart(3, '0');
 
           // Rule 1: BP should have a verb
-          const hasVerb = words.some(w => COMMON_VERBS.some(v => w.toLowerCase().startsWith(v)));
+          // Check for verb - handles base form, gerunds (-ing), and 3rd person (-s)
+          const hasVerb = words.some(w => {
+            const wl = w.toLowerCase();
+            return COMMON_VERBS.some(v => {
+              return wl === v ||                    // exact: "limit"
+                     wl.startsWith(v) ||           // starts: "limiting", "limits"
+                     (wl.endsWith('ing') && v.startsWith(wl.slice(0,-3))) || // gerund: "assembling" → "assembl"
+                     (wl.endsWith('ing') && v === wl.slice(0,-3) + 'e'); // "managing" → "manage"
+            });
+          });
           if (!hasVerb && words.length > 0) {
             issues.push({
               id: p.id + '_verb',
@@ -1527,7 +1543,12 @@ Sent from DMS Confluence Tool`
           }
 
           // Rule 3: DM jargon in BP name
-          const foundJargon = DM_JARGON.find(j => coreName.toLowerCase().includes(j));
+          // Match jargon as whole word only (avoid "sfc" matching inside other words)
+          const lowerName = coreName.toLowerCase();
+          const foundJargon = DM_JARGON.find(j => {
+            const regex = new RegExp('\\b' + j + '\\b', 'i');
+            return regex.test(lowerName);
+          });
           if (foundJargon) {
             issues.push({
               id: p.id + '_jargon',
